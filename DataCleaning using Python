@@ -1,0 +1,167 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pylab as plt
+
+filename = "https://s3-api.us-geo.objectstorage.softlayer.net/cf-courses-data/CognitiveClass/DA0101EN/auto.csv"
+headers = ["symboling","normalized-losses","make","fuel-type","aspiration", "num-of-doors","body-style",
+         "drive-wheels","engine-location","wheel-base", "length","width","height","curb-weight","engine-type",
+         "num-of-cylinders", "engine-size","fuel-system","bore","stroke","compression-ratio","horsepower",
+         "peak-rpm","city-mpg","highway-mpg","price"]
+
+#Read csv from the file path along with providing the headers:
+df = pd.read_csv(filename, names = headers)
+df.head()
+df.dtypes()
+
+#Handeling missing Data:
+# replace "?" to NaN
+df.replace("?", np.nan, inplace = True)
+df.head(5)
+
+#Evaluating missing data for the columns containing missing values:
+missing_data = df.isnull()
+missing_data.head(10)
+
+for col in missing_data.columns.values.tolist():
+    print(col)
+    print (missing_data[col].value_counts())
+    print("") 
+
+######################################################################################################################################
+################################################  DATA CLEANING  #####################################################################
+######################################################################################################################################
+
+#Using mean value to replace missing values. Using inplace param to ensure the update reflects in the dataframe df
+avg_norm_loss = df["normalized-losses"].astype("float").mean(axis=0)
+df["normalized-losses"].replace(np.nan, avg_norm_loss, inplace=True)
+
+avg_bore=df['bore'].astype('float').mean(axis=0)
+df["bore"].replace(np.nan, avg_bore, inplace=True)
+
+mean_stroke=df["stroke"].astype('float').mean(axis=0)
+df["stroke"].replace(np.nan,mean_stroke,inplace=True)
+
+avg_horsepower = df['horsepower'].astype('float').mean(axis=0)
+df['horsepower'].replace(np.nan, avg_horsepower, inplace=True)
+
+avg_peakrpm=df['peak-rpm'].astype('float').mean(axis=0)
+df['peak-rpm'].replace(np.nan, avg_peakrpm, inplace=True)
+
+#Using most frequent occuring value to replace missing data.
+df['num-of-doors'].value_counts().idxmax()
+df["num-of-doors"].replace(np.nan, "four", inplace=True)
+
+#drop all rows that do not have price data. Price is the target variable that is to be predicted using other variables and other values 
+#would not matter much for the rows where values for Price is missing.
+df.dropna(subset=["price"], axis=0, inplace=True)
+
+# reset index, because we have droped two rows
+df.reset_index(drop=True, inplace=True)
+
+df.head()
+
+######################################################################################################################################
+##############################################  DATA FORMATTING  #####################################################################
+######################################################################################################################################
+df.dtypes
+
+'''Some columns are not of the correct data type. Numerical variables should have type 'float' or 'int', 
+and variables with strings such as categories should have type 'object'.'''
+
+df[["bore", "stroke"]] = df[["bore", "stroke"]].astype("float")
+df[["normalized-losses"]] = df[["normalized-losses"]].astype("int")
+df[["price"]] = df[["price"]].astype("float")
+df[["peak-rpm"]] = df[["peak-rpm"]].astype("float")
+df.dtypes
+
+######################################################################################################################################
+##############################################  DATA STANDARDIZATION  ################################################################
+######################################################################################################################################
+# Convert mpg to L/100km by mathematical operation (235 divided by mpg)
+df['city-L/100km'] = 235/df["city-mpg"]
+# checking the transformed data 
+df.head()
+
+df['highway-L/100km']=235/df['highway-mpg']
+df.head()
+
+######################################################################################################################################
+##############################################  DATA NORMALIZATION  ##################################################################
+######################################################################################################################################
+#Transforming values of several variables into a similar range
+
+# replace (original value) by (original value)/(maximum value)
+df['length'] = df['length']/df['length'].max()
+df['width'] = df['width']/df['width'].max()
+df['height']=df['height']/df['height'].max()
+
+######################################################################################################################################
+#########################################################  BINNING  ##################################################################
+######################################################################################################################################
+####  transforming continuous numerical variables into discrete categorical 'bins', for grouped analysis #############################
+df["horsepower"]=df["horsepower"].astype(int, copy=True)
+
+%matplotlib inline
+import matplotlib as plt
+from matplotlib import pyplot
+plt.pyplot.hist(df["horsepower"])
+
+# setting x/y labels and plot title
+plt.pyplot.xlabel("horsepower")
+plt.pyplot.ylabel("count")
+plt.pyplot.title("horsepower bins")
+
+bins = np.linspace(min(df["horsepower"]), max(df["horsepower"]), 4)
+group_names = ['Low', 'Medium', 'High']
+
+#Using cut to segment and sort data values into bins.
+df['horsepower-binned'] = pd.cut(df['horsepower'], bins, labels=group_names, include_lowest=True )
+df[['horsepower','horsepower-binned']].head(20)
+
+#number of vehicles in each bin
+df["horsepower-binned"].value_counts()
+
+#plotting the distribution of each bin
+%matplotlib inline
+import matplotlib as plt
+from matplotlib import pyplot
+pyplot.bar(group_names, df["horsepower-binned"].value_counts())
+
+# set x/y labels and plot title
+plt.pyplot.xlabel("horsepower")
+plt.pyplot.ylabel("count")
+plt.pyplot.title("horsepower bins")
+
+#Visualizing bins
+%matplotlib inline
+import matplotlib as plt
+from matplotlib import pyplot
+
+a = (0,1,2)
+
+# drawing historgram of attribute "horsepower" with bins = 3
+plt.pyplot.hist(df["horsepower"], bins = 3)
+
+# x/y labels and plot title
+plt.pyplot.xlabel("horsepower")
+plt.pyplot.ylabel("count")
+plt.pyplot.title("horsepower bins")
+
+#handeling categorical variables using dummy variable
+df.columns
+dummy_variable_1 = pd.get_dummies(df["fuel-type"])
+dummy_variable_1.head()
+
+# merge data frame "df" and "dummy_variable_1" 
+df = pd.concat([df, dummy_variable_1], axis=1)
+
+# drop original column "fuel-type" from "df"
+df.drop("fuel-type", axis = 1, inplace=True)
+
+dummy_2.rename(columns={'aspiration-std':'std', 'aspiration-turbo':'turbo'}, inplace=True)
+df=pd.concat([df,dummy_2],axis=1)
+df.drop("aspiration",axis=1,inplace=True)
+
+#saving the cleaned data from the dataframe to the csv.
+df.to_csv('clean_df.csv')
+
